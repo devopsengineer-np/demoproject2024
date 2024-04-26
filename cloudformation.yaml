@@ -1,12 +1,11 @@
 
+Parameters:
+  KeyName: 
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key Pair for EC2 Login
+    Default: New-KeyPair
+
 Resources:
-#  S3Bucket:
-#    Type: 'AWS::S3::Bucket'
- #   Properties: 
-  #    BucketName: devopscf
-   #   Tags:
-    #    - Key: Project
-     #     Value: devops-Cf
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -18,6 +17,7 @@ Resources:
       Tags:
         - Key: Project
           Value: devops-Cf-IG
+
   VPCIGAttach:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -82,6 +82,51 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: security group with following port dest
+      GroupDescription: Security group with SSH and HTTP inbound rules
       VpcId:
         Ref: VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0 
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp2
+            DeleteOnTermination: true
+      CpuOptions:
+        CoreCount: 1
+        ThreadsPerCore: 2
+      CreditSpecification:
+        CPUCredits: unlimited
+      ImageId: ami-04b70fa74e45c3917
+      InstanceType: t3.small 
+      KeyName:
+        Ref: KeyName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: 0
+          SubnetId:
+            Ref: PublicSubnet
+          GroupSet:
+            - !GetAtt SecurityGroup.GroupId
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          sudo apt update -y
+          sudo apt install nginx -y
+          sudo service nginx start
+          sudo systemctl enable nginx.service
